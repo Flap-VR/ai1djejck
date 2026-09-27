@@ -1,0 +1,9 @@
+teleport-delay-seconds: 5
+messages:
+  prefix: "&c&lHOMES &8» &7"
+  home-set: "&aSuccessfully set home &e%home%&a!"
+  home-not-found: "&cHome &e%home% &cwas not found!"
+  home-deleted: "&cSuccessfully deleted home &e%home%&c!"
+  teleporting: "&7Teleporting in &e%seconds% &7seconds. Don't move!"
+  teleport-success: "&aTeleported successfully!"
+  teleport-cancelled: "&cTeleportation cancelled because you moved!"
