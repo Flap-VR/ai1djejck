@@ -43,10 +43,10 @@ public final class UltraHome extends JavaPlugin implements CommandExecutor, List
         10, 10, 10
     };
 
+    // GUI Layout matching your mockup image (Slot 11: Clock, Slots 12-16: Homes 1-5, Slots 20-23: Homes 6-9, Slot 24: Show More)
     private static final int[] GUI_SLOTS = {
-        11, 12, 13,
-        14, 15, 16,
-        19, 20, 21
+        12, 13, 14, 15, 16, // Top row homes
+        20, 21, 22, 23      // Bottom row homes
     };
 
     @Override
@@ -174,26 +174,32 @@ public final class UltraHome extends JavaPlugin implements CommandExecutor, List
         double playerHours = player.getStatistic(Statistic.PLAY_ONE_MINUTE) / 20.0 / 3600.0;
         ConfigurationSection section = getConfig().getConfigurationSection("homes." + player.getUniqueId().toString());
 
-        ItemStack infoItem = new ItemStack(Material.CLOCK);
-        ItemMeta infoMeta = infoItem.getItemMeta();
-        if (infoMeta != null) {
-            infoMeta.setDisplayName(ChatColor.WHITE + "Playtime: " + String.format("%.1f", playerHours) + " hrs");
-            List infoLore = new ArrayList();
-            infoLore.add(ChatColor.GRAY + "Unlock more homes as");
-            infoLore.add(ChatColor.GRAY + "you play on the server!");
-            infoMeta.setLore(infoLore);
-            infoItem.setItemMeta(infoMeta);
+        // Slot 11: Playtime Clock Info Item
+        ItemStack clockItem = new ItemStack(Material.CLOCK);
+        ItemMeta clockMeta = clockItem.getItemMeta();
+        if (clockMeta != null) {
+            clockMeta.setDisplayName(ChatColor.WHITE + "Playtime: " + String.format("%.1f", playerHours) + " hrs");
+            List clockLore = new ArrayList();
+            clockLore.add(ChatColor.GRAY + "Unlock more homes as");
+            clockLore.add(ChatColor.GRAY + "you play on the server!");
+            clockMeta.setLore(clockLore);
+            clockItem.setItemMeta(clockMeta);
         }
-        inv.setItem(10, infoItem);
+        inv.setItem(11, clockItem);
 
+        // Slot 24: Show More button (Functional)
         ItemStack showMoreItem = new ItemStack(Material.PAPER);
         ItemMeta showMoreMeta = showMoreItem.getItemMeta();
         if (showMoreMeta != null) {
             showMoreMeta.setDisplayName(ChatColor.WHITE + "Show More");
+            List showMoreLore = new ArrayList();
+            showMoreLore.add(ChatColor.GRAY + "Click to view statistics");
+            showMoreMeta.setLore(showMoreLore);
             showMoreItem.setItemMeta(showMoreMeta);
         }
-        inv.setItem(22, showMoreItem);
+        inv.setItem(24, showMoreItem);
 
+        // Populate 9 homes across GUI_SLOTS
         for (int i = 0; i < HOME_SLOTS.length; i++) {
             String homeName = HOME_SLOTS[i];
             int requiredHours = HOME_HOURS[i];
@@ -229,7 +235,7 @@ public final class UltraHome extends JavaPlugin implements CommandExecutor, List
                 if (meta != null) {
                     meta.setDisplayName(ChatColor.GREEN + "Home: " + ChatColor.YELLOW + homeName);
                     List lore = new ArrayList();
-                    lore.add(ChatColor.GRAY + "Click to teleport");
+                    lore.add(ChatColor.GRAY + "Left-click to teleport");
                     lore.add(ChatColor.DARK_GRAY + "Right-click to delete");
                     meta.setLore(lore);
                     item.setItemMeta(meta);
@@ -242,16 +248,61 @@ public final class UltraHome extends JavaPlugin implements CommandExecutor, List
         player.openInventory(inv);
     }
 
+    private void openStatsGUI(Player player) {
+        Inventory inv = Bukkit.createInventory(null, 27, "Home Statistics");
+        double playerHours = player.getStatistic(Statistic.PLAY_ONE_MINUTE) / 20.0 / 3600.0;
+        ConfigurationSection section = getConfig().getConfigurationSection("homes." + player.getUniqueId().toString());
+        int setHomesCount = section != null ? section.getKeys(false).size() : 0;
+
+        ItemStack statsItem = new ItemStack(Material.BOOK);
+        ItemMeta meta = statsItem.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(ChatColor.YELLOW + "Player Statistics");
+            List lore = new ArrayList();
+            lore.add(ChatColor.GRAY + "Playtime: " + String.format("%.1f", playerHours) + " hours");
+            lore.add(ChatColor.GRAY + "Homes Set: " + setHomesCount + " / 9");
+            meta.setLore(lore);
+            statsItem.setItemMeta(meta);
+        }
+        inv.setItem(13, statsItem);
+
+        ItemStack backItem = new ItemStack(Material.ARROW);
+        ItemMeta backMeta = backItem.getItemMeta();
+        if (backMeta != null) {
+            backMeta.setDisplayName(ChatColor.RED + "Go Back");
+            backItem.setItemMeta(backMeta);
+        }
+        inv.setItem(22, backItem);
+
+        player.openInventory(inv);
+    }
+
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
         String title = event.getView().getTitle();
+        Player player = (Player) event.getWhoClicked();
+
+        if (title != null && title.equals("Home Statistics")) {
+            event.setCancelled(true);
+            ItemStack clicked = event.getCurrentItem();
+            if (clicked == null || clicked.getType() == Material.AIR) return;
+            if (clicked.getType() == Material.ARROW) {
+                openHomesGUI(player);
+            }
+            return;
+        }
+
         if (title != null && title.equals("Homes")) {
             event.setCancelled(true);
             ItemStack clicked = event.getCurrentItem();
             if (clicked == null || clicked.getType() == Material.AIR) return;
 
             int slot = event.getRawSlot();
-            Player player = (Player) event.getWhoClicked();
+
+            if (slot == 24) {
+                openStatsGUI(player);
+                return;
+            }
 
             int homeIndex = -1;
             for (int i = 0; i < GUI_SLOTS.length; i++) {
@@ -334,6 +385,7 @@ public final class UltraHome extends JavaPlugin implements CommandExecutor, List
                 }
 
                 if (countdown > 0) {
+                    player.sendMessage(ChatColor.RED + "" + ChatColor.BOLD + "HOMES " + ChatColor.DARK_GRAY + "» " + ChatColor.GRAY + "Teleporting in " + ChatColor.YELLOW + countdown + ChatColor.GRAY + " seconds...");
                     player.playSound(player.getLocation(), Sound.BLOCK_LEVER_CLICK, 1.0f, 1.0f);
                     countdown--;
                 } else {
@@ -356,14 +408,18 @@ public final class UltraHome extends JavaPlugin implements CommandExecutor, List
         UUID uuid = player.getUniqueId();
 
         if (pendingTeleports.containsKey(uuid)) {
-            if (event.hasChangedPosition()) {
-                BukkitTask task = (BukkitTask) pendingTeleports.remove(uuid);
-                if (task != null) {
-                    task.cancel();
+            Location initial = (Location) initialLocations.get(uuid);
+            Location to = event.getTo();
+            if (initial != null && to != null) {
+                if (!initial.getWorld().equals(to.getWorld()) || initial.distanceSquared(to) > 0.01) {
+                    BukkitTask task = (BukkitTask) pendingTeleports.remove(uuid);
+                    if (task != null) {
+                        task.cancel();
+                    }
+                    initialLocations.remove(uuid);
+                    player.sendMessage(ChatColor.RED + "" + ChatColor.BOLD + "HOMES " + ChatColor.DARK_GRAY + "» " + ChatColor.RED + "Teleportation cancelled because you moved!");
+                    player.playSound(player.getLocation(), Sound.ENTITY_WANDERING_TRADER_DISAPPEARED, 1.0f, 1.0f);
                 }
-                initialLocations.remove(uuid);
-                player.sendMessage(ChatColor.RED + "" + ChatColor.BOLD + "HOMES " + ChatColor.DARK_GRAY + "» " + ChatColor.RED + "Teleportation cancelled because you moved!");
-                player.playSound(player.getLocation(), Sound.ENTITY_WANDERING_TRADER_DISAPPEARED, 1.0f, 1.0f);
             }
         }
     }
@@ -375,16 +431,25 @@ public final class UltraHome extends JavaPlugin implements CommandExecutor, List
                 Player player = (Player) sender;
                 UltraHome plugin = JavaPlugin.getPlugin(UltraHome.class);
                 ConfigurationSection section = plugin.getConfig().getConfigurationSection("homes." + player.getUniqueId().toString());
+                List matches = new ArrayList();
+                String search = args[0].toLowerCase();
+                
                 if (section != null) {
-                    List matches = new ArrayList();
-                    String search = args[0].toLowerCase();
                     for (String key : section.getKeys(false)) {
                         if (key.toLowerCase().startsWith(search)) {
                             matches.add(key);
                         }
                     }
-                    return matches;
                 }
+                
+                if (matches.isEmpty()) {
+                    for (String home : new String[]{"home_1", "home_2", "home_3", "home_4", "home_5", "home_6", "home_7", "home_8", "home_9"}) {
+                        if (home.toLowerCase().startsWith(search)) {
+                            matches.add(home);
+                        }
+                    }
+                }
+                return matches;
             }
             return Collections.emptyList();
         }
